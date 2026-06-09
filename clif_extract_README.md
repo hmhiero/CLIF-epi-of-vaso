@@ -30,24 +30,31 @@ Expected at `CLIF_DIR` (edit at top of script). Required tables:
 ### 2. Python environment
 
 ```bash
-pip install clifpy pandas numpy pyarrow
+pip install -r requirements.txt
 ```
 
 ---
 
-## Configuration (top of script)
+## Configuration
+
+Copy `config.example.py` to review all settings. The only values that **must** change per site are `CLIF_DIR` and `OUTPUT_DIR` — edit them directly at the top of `clif_extract.py` (around line 37):
+
+```python
+CLIF_DIR   = Path("/path/to/your/clif/2.1.0")
+OUTPUT_DIR = Path("/path/to/your/output/data_clif")
+```
+
+All other parameters reflect the OVISS inclusion criteria and should not need adjustment.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLIF_DIR` | *(absolute path)* | Root directory of CLIF parquet files |
-| `OUTPUT_DIR` | *(absolute path)* | Where outputs are written |
+| `CLIF_DIR` | *(set per site)* | Root directory of CLIF parquet files |
+| `OUTPUT_DIR` | *(set per site)* | Where outputs are written |
 | `TRAJECTORY_HOURS` | 120 | Maximum trajectory length (hours) |
 | `NE_WINDOW_HOURS` | 24 | NE must start within this many hours of ICU admit |
 | `MIN_NE_RECORDS` | 2 | Minimum NE administration records required |
 | `SOFA_THRESHOLD` | 2.0 | Minimum SOFA score at sepsis onset |
 | `LACTATE_THRESHOLD` | 2.0 | Minimum lactate (mmol/L) within 24h of infection |
-
-**For federated use:** update `CLIF_DIR` and `OUTPUT_DIR` to local paths before running.
 
 ---
 
@@ -127,7 +134,7 @@ A per-patient hourly grid is built from `time_hour = 0` (trajectory start / shoc
 | `ne_mar_action` | Continuous meds (`mar_action_group` or `mar_action_name`) | Last action string in hour (NaN if no record) |
 | `vaso_mar_action` | Continuous meds (`mar_action_group` or `mar_action_name`) | Last action string in hour (NaN if no record) |
 | `urine_output` | Not available in CLIF 2.1.0 | Zero-filled |
-| `death` | Assigned downstream by `02_preprocess.py` | 0 here |
+| `death` | Not available from CLIF 2.1.0 | Zero-filled |
 
 #### Fluids unit handling
 - `mL/hr` → used directly

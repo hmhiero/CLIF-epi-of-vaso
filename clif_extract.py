@@ -1049,12 +1049,9 @@ def main():
     features.to_parquet(OUTPUT_DIR / "features_clif.parquet", index=False)
     print(f"Saved {OUTPUT_DIR / 'features_clif.parquet'}")
 
-    print("\nDone. Run the pipeline with:")
-    print(f"  python 02_preprocess.py \\")
-    print(f"      --features {OUTPUT_DIR}/features_clif.parquet \\")
-    print(f"      --cohort   {OUTPUT_DIR}/cohort_clif.parquet \\")
-    print(f"      --output-dir {OUTPUT_DIR}")
-    print(f"  python 04_evaluate.py --data-dir {OUTPUT_DIR} --results-dir results/clif_validation")
+    print("\nDone. Outputs written to:")
+    print(f"  {OUTPUT_DIR / 'cohort_clif.parquet'}")
+    print(f"  {OUTPUT_DIR / 'features_clif.parquet'}")
 
 
 if __name__ == "__main__":
