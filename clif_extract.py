@@ -268,8 +268,22 @@ def _add_missing_med_cols(co: ClifOrchestrator) -> None:
 # Phase A: Full cohort assembly
 # ---------------------------------------------------------------------------
 def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
+    filter_log = []
+
+    print("\nStep 0: Total hospitalizations in CLIF site...")
+    hosp_all = pd.read_parquet(clif_dir / "clif_hospitalization.parquet")[["hospitalization_id"]]
+    filter_log.append({
+        "step": "Total hospitalizations in CLIF site",
+        "n_hospitalizations": len(hosp_all),
+    })
+    print(f"  {len(hosp_all):,} total hospitalizations")
+
     print("\nStep 1: Suspected infection (IV abx + blood culture within 24h)...")
     suspected = identify_suspected_infection(clif_dir)
+    filter_log.append({
+        "step": "IV CMS qualifying antibiotic + blood culture within 24h",
+        "n_hospitalizations": len(suspected),
+    })
     print(f"  {len(suspected):,} patients")
 
     print("Step 2: ICU admission times from ADT...")
@@ -279,11 +293,19 @@ def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
     suspected["icu_intime"] = tz_coerce(suspected["icu_intime"], TIMEZONE)
     diff_h = (suspected["presumed_infection_dttm"] - suspected["icu_intime"]).dt.total_seconds() / 3600
     suspected = suspected[diff_h.abs() <= 24].copy()
+    filter_log.append({
+        "step": "ICU admission (ADT) within 24h of suspected infection",
+        "n_hospitalizations": len(suspected),
+    })
     print(f"  {len(suspected):,} with infection within 24h of ICU admit")
 
     print("Step 3: NE criteria (first NE ≤24h of ICU admit, ≥2 records)...")
     ne = get_ne_criteria(clif_dir, icu)
     suspected = suspected.merge(ne, on="hospitalization_id", how="inner")
+    filter_log.append({
+        "step": f"Norepinephrine within 24h of ICU admit (>=2 records)",
+        "n_hospitalizations": len(suspected),
+    })
     print(f"  {len(suspected):,} patients")
 
     print("Step 4: SOFA ≥ 2 via clifpy...")
@@ -309,6 +331,10 @@ def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
     suspected = suspected.merge(sofa[["hospitalization_id", "sofa_total"]],
                                 on="hospitalization_id", how="left")
     suspected = suspected[suspected["sofa_total"] >= SOFA_THRESHOLD].copy()
+    filter_log.append({
+        "step": f"SOFA >= {SOFA_THRESHOLD} within 24h of infection",
+        "n_hospitalizations": len(suspected),
+    })
     print(f"  {len(suspected):,} with SOFA ≥ {SOFA_THRESHOLD}")
 
     print("Step 5: Hemodynamic criteria (NE already applied; vasopressor criterion met)...")
@@ -335,6 +361,10 @@ def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
     elevated_ids = set(lac["hospitalization_id"])
     cohort = suspected[suspected["hospitalization_id"].isin(elevated_ids)].copy()
     cohort = cohort.merge(initial_lac, on="hospitalization_id", how="left")
+    filter_log.append({
+        "step": f"Lactate > {LACTATE_THRESHOLD} mmol/L within 24h of infection (final septic shock cohort)",
+        "n_hospitalizations": len(cohort),
+    })
     print(f"  {len(cohort):,} septic shock patients")
 
     print("Step 7: Mortality and trajectory bounds...")
@@ -396,7 +426,7 @@ def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
     cohort = cohort.merge(vaso_pretraj, on="stay_id", how="left")
     cohort["vaso_before_traj"] = cohort["vaso_before_traj"].fillna(0).astype(int)
 
-    return cohort, co
+    return cohort, co, filter_log
 
 
 # ---------------------------------------------------------------------------
@@ -1016,7 +1046,7 @@ def main():
         print("=" * 60)
         print("PHASE A: COHORT IDENTIFICATION")
         print("=" * 60)
-        cohort, co = build_cohort(CLIF_DIR, co)
+        cohort, co, filter_log = build_cohort(CLIF_DIR, co)
 
         print(f"\nFinal cohort: {len(cohort):,} patients")
         print(f"  Mortality:        {cohort['hospital_death'].mean():.1%}")
@@ -1034,6 +1064,10 @@ def main():
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         cohort_out.to_parquet(cohort_path, index=False)
         print(f"Saved {cohort_path}")
+
+        filter_csv = OUTPUT_DIR / "cohort_filter_counts.csv"
+        pd.DataFrame(filter_log).to_csv(filter_csv, index=False)
+        print(f"Saved {filter_csv}")
 
     print("\n" + "=" * 60)
     print("PHASE B: FEATURE EXTRACTION")

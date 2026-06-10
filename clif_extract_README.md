@@ -2,7 +2,10 @@
 
 **Purpose:** CLIF 2.1.0 cohort extraction. Identifies septic shock patients from a CLIF site and builds hourly feature tables.
 
-Outputs drop into `data_clif/`.
+Outputs drop into `data_clif/`:
+- `cohort_clif.parquet` — one row per patient, cohort-level columns
+- `features_clif.parquet` — one row per patient-hour, hourly features
+- `cohort_filter_counts.csv` — patient counts at each inclusion filter step
 
 ---
 
@@ -75,15 +78,17 @@ Seven sequential inclusion criteria (Sepsis-3 / OVISS logic):
 
 | Step | Criterion | Source |
 |------|-----------|--------|
+| 0 | All hospitalizations in CLIF site (baseline count) | `clif_hospitalization` |
 | 1 | IV CMS-qualifying antibiotic + blood culture within 24h of each other → `presumed_infection_dttm` = earliest event | `medication_admin_intermittent`, `microbiology_culture` |
-| 2 | ICU admission from ADT (`location_category == "icu"`) | `clif_adt` |
-| 3 | Infection event within ±24h of ICU admit | — |
-| 4 | First NE within 24h of ICU admit, ≥2 records (`med_category == "norepinephrine"`, unit `mcg/kg/min`) | `medication_admin_continuous` |
-| 5 | SOFA ≥ 2 in 24h window around infection onset (via clifpy) | labs, vitals, resp support, meds |
-| 6 | Lactate > 2 mmol/L within 24h of infection | `clif_labs` |
-| 7 | Trajectory bounds: `trajectory_start = max(icu_intime, first_norepi_time, presumed_infection_dttm)`; `trajectory_end = min(icu_outtime, start + 120h, deathtime)` | all above |
+| 2 | ICU admission from ADT (`location_category == "icu"`) within ±24h of infection | `clif_adt` |
+| 3 | First NE within 24h of ICU admit, ≥2 records (`med_category == "norepinephrine"`, unit `mcg/kg/min`) | `medication_admin_continuous` |
+| 4 | SOFA ≥ 2 in 24h window around infection onset (via clifpy) | labs, vitals, resp support, meds |
+| 5 | Lactate > 2 mmol/L within 24h of infection | `clif_labs` |
+| 6 | Trajectory bounds: `trajectory_start = max(icu_intime, first_norepi_time, presumed_infection_dttm)`; `trajectory_end = min(icu_outtime, start + 120h, deathtime)` | all above |
 
-Demographics (age, sex, race) and weight (median vitals during trajectory) are appended after step 7.
+Demographics (age, sex, race) and weight (median vitals during trajectory) are appended after step 6.
+
+Patient counts at each step are saved to `cohort_filter_counts.csv` (see below).
 
 ### Output: `cohort_clif.parquet`
 
@@ -103,6 +108,26 @@ Demographics (age, sex, race) and weight (median vitals during trajectory) are a
 | `weight` | Median weight (kg) during trajectory |
 | `sepsis_onset_sofa` | SOFA score at infection onset (24h window) |
 | `initial_lactate` | First lactate value in 24h infection window |
+
+### Output: `cohort_filter_counts.csv`
+
+Two-column table written when the cohort is built (not when loaded from cache). Useful for consort/flow diagrams.
+
+| Column | Description |
+|--------|-------------|
+| `step` | Human-readable description of the inclusion criterion |
+| `n_hospitalizations` | Number of hospitalizations remaining after this filter |
+
+Example rows:
+
+| step | n_hospitalizations |
+|------|--------------------|
+| Total hospitalizations in CLIF site | — |
+| IV CMS qualifying antibiotic + blood culture within 24h | — |
+| ICU admission (ADT) within 24h of suspected infection | — |
+| Norepinephrine within 24h of ICU admit (>=2 records) | — |
+| SOFA >= 2.0 within 24h of infection | — |
+| Lactate > 2.0 mmol/L within 24h of infection (final septic shock cohort) | — |
 
 ---
 
@@ -150,6 +175,6 @@ A per-patient hourly grid is built from `time_hour = 0` (trajectory start / shoc
 
 - Update `CLIF_DIR` and `OUTPUT_DIR` at the top of the script.
 - All other parameters match OVISS inclusion criteria and should not need adjustment.
-- Phase A is cached: if `cohort_clif.parquet` already exists with all required columns, it will not be rebuilt.
+- Phase A is cached: if `cohort_clif.parquet` already exists with all required columns, it will not be rebuilt. `cohort_filter_counts.csv` is only written on a fresh build.
 - `gcs` is gracefully skipped if `clif_patient_assessments.parquet` is absent.
 - `ne_mar_action` / `vaso_mar_action` are NaN-filled if no MAR action column is present in your continuous meds table.
