@@ -562,13 +562,10 @@ def add_ventil(grid: pd.DataFrame, clif_dir: Path) -> pd.DataFrame:
 
 
 def add_rrt(grid: pd.DataFrame, clif_dir: Path) -> pd.DataFrame:
-    crrt = pd.read_parquet(clif_dir / "clif_crrt_therapy.parquet")[
+    rrt_all = pd.read_parquet(clif_dir / "clif_crrt_therapy.parquet")[
         ["hospitalization_id", "recorded_dttm"]
     ].copy()
-    ihd = pd.read_parquet(clif_dir / "clif_intermittent_hemodialysis.parquet")[
-        ["hospitalization_id", "recorded_dttm"]
-    ].copy()
-    rrt_all = pd.concat([crrt, ihd], ignore_index=True)
+
     rrt_all = rrt_all.rename(columns={"hospitalization_id": "stay_id"})
     rrt_all["recorded_dttm"] = to_naive_utc(rrt_all["recorded_dttm"])
 
