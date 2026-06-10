@@ -32,10 +32,10 @@ except ModuleNotFoundError:
 warnings.filterwarnings("ignore")
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Configuration — defaults (override in config.py, copied from config.example.py)
 # ---------------------------------------------------------------------------
-CLIF_DIR = Path(r"C:\Users\hhieromnimon\Box\04-CLIF-2.1\2.1.0")
-OUTPUT_DIR = Path(r"C:\Users\hhieromnimon\Box\Research\rl-clinical-concordance\0_MIMIC_RAW_ABLATION\data_clif")
+CLIF_DIR   = None   # REQUIRED — set in config.py
+OUTPUT_DIR = None   # REQUIRED — set in config.py
 TIMEZONE = "UTC"
 TRAJECTORY_HOURS = 120
 NE_WINDOW_HOURS = 24   # NE must start within 24h of ICU admit
@@ -52,6 +52,27 @@ VASOPRESSOR_CATEGORIES = [
     "norepinephrine", "epinephrine", "phenylephrine",
     "vasopressin", "dopamine", "angiotensin",
 ]
+
+# Override defaults with site-specific config if config.py exists
+try:
+    import config as _cfg
+    for _k in (
+        "CLIF_DIR", "OUTPUT_DIR", "TIMEZONE", "TRAJECTORY_HOURS",
+        "NE_WINDOW_HOURS", "MIN_NE_RECORDS", "SOFA_THRESHOLD",
+        "LACTATE_THRESHOLD", "MAP_THRESHOLD",
+        "STEROID_CATEGORIES", "VASOPRESSOR_CATEGORIES",
+    ):
+        if hasattr(_cfg, _k):
+            globals()[_k] = getattr(_cfg, _k)
+    del _cfg, _k
+except ImportError:
+    pass
+
+if CLIF_DIR is None or OUTPUT_DIR is None:
+    sys.exit(
+        "ERROR: CLIF_DIR and OUTPUT_DIR are not configured.\n"
+        "Copy config.example.py to config.py and set your site-specific paths."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -578,6 +599,7 @@ def add_vitals(grid: pd.DataFrame, clif_dir: Path) -> pd.DataFrame:
     ].copy()
     target = target.rename(columns={"hospitalization_id": "stay_id"})
     target["recorded_dttm"] = to_naive_utc(target["recorded_dttm"])
+    target = target.dropna(subset=["recorded_dttm"])  # NaT timestamps can't convert to hour offset
 
     # trajectory_start for each patient = start_time at time_hour == 0
     traj_start = (grid[grid["time_hour"] == 0][["stay_id", "start_time"]]
@@ -975,8 +997,10 @@ def build_features(cohort: pd.DataFrame, co: ClifOrchestrator, clif_dir: Path) -
     # action_vaso: vasopressin > 0 at this hour (mirrors MIMIC SQL vaso_hourly.action_vaso)
     grid["action_vaso"] = (grid["vaso_dose"] > 0).astype(int)
 
-    # death: set to 0 here — 02_preprocess.py assigns it from cohort deathtime
-    grid["death"] = 0
+    # death: patient-level hospital mortality broadcast to all hours
+    death_map = cohort[["stay_id", "hospital_death"]].rename(columns={"hospital_death": "death"})
+    grid = grid.merge(death_map, on="stay_id", how="left")
+    grid["death"] = grid["death"].fillna(0).astype(int)
 
     grid = grid.drop(columns=["start_time", "end_time"])
     grid = grid.sort_values(["stay_id", "time_hour"]).reset_index(drop=True)

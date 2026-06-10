@@ -37,12 +37,14 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Copy `config.example.py` to review all settings. The only values that **must** change per site are `CLIF_DIR` and `OUTPUT_DIR` — edit them directly at the top of `clif_extract.py` (around line 37):
+Copy `config.example.py` to `config.py` and fill in your site's paths — this is the **only file you need to edit**:
 
-```python
-CLIF_DIR   = Path("/path/to/your/clif/2.1.0")
-OUTPUT_DIR = Path("/path/to/your/output/data_clif")
+```bash
+cp config.example.py config.py
+# then open config.py and set CLIF_DIR and OUTPUT_DIR
 ```
+
+`clif_extract.py` automatically loads `config.py` at startup and will exit with a clear error if `CLIF_DIR` or `OUTPUT_DIR` are missing.
 
 All other parameters reflect the OVISS inclusion criteria and should not need adjustment.
 
@@ -134,7 +136,7 @@ A per-patient hourly grid is built from `time_hour = 0` (trajectory start / shoc
 | `ne_mar_action` | Continuous meds (`mar_action_group` or `mar_action_name`) | Last action string in hour (NaN if no record) |
 | `vaso_mar_action` | Continuous meds (`mar_action_group` or `mar_action_name`) | Last action string in hour (NaN if no record) |
 | `urine_output` | Not available in CLIF 2.1.0 | Zero-filled |
-| `death` | Not available from CLIF 2.1.0 | Zero-filled |
+| `death` | `hospital_death` from cohort (Expired discharge or death_dttm present) | Broadcast to all hours |
 
 #### Fluids unit handling
 - `mL/hr` → used directly
