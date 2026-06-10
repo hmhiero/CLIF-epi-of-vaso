@@ -1,9 +1,7 @@
 # config.example.py
 #
 # Copy this file to config.py and fill in your site's paths.
-# Then set USE_CONFIG = True at the top of clif_extract.py,
-# or simply paste your values directly into the configuration
-# block near line 37 of clif_extract.py.
+# clif_extract.py automatically loads config.py at startup.
 #
 # Only CLIF_DIR and OUTPUT_DIR need to change per site.
 # All other values reflect the OVISS inclusion criteria and
