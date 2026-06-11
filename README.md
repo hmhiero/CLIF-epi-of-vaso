@@ -49,9 +49,9 @@ Final aggregate outputs (no patient-level data) are written to `output/UCMC/` (C
 | `feature_at_initiation.csv` | Feature values (median [IQR]) at first vasopressin initiation | `site_summary.py` |
 | `feature_thresholds_youden.csv` | Per-feature threshold performance (AUC, sens, spec) | `site_summary.py` |
 | `feature_roc_curves.csv` | ROC curve points on fixed grid for coordinating-site replot | `site_summary.py` |
-| `threshold_comparison_table.csv` | Per-feature optimal threshold, kappa, AUROC (step-level) | `35_threshold_policy_comparison.py` |
-| `patient_level_table.csv` | Per-feature patient-level threshold performance | `35_threshold_policy_comparison.py` |
-| `plots/` | Threshold sweep and decision-tree fidelity figures | `35_threshold_policy_comparison.py` |
+| `threshold_comparison_table.csv` | Per-feature optimal threshold, kappa, AUROC (step-level) | `site_threshold_sweep.py` |
+| `patient_level_table.csv` | Per-feature patient-level threshold performance | `site_threshold_sweep.py` |
+| `plots/` | Threshold sweep and decision-tree fidelity figures | `site_threshold_sweep.py` |
 
 
 ## Detailed instructions for running the project
@@ -99,12 +99,12 @@ python code/site_summary.py --dataset mimic
 
 Writes aggregate CSVs to `output/UCMC/` or `output/MIMIC/`. **Share only these files** — not the raw parquet data.
 
-### 5. Run threshold analysis at your site (35_threshold_policy_comparison.py)
+### 5. Run threshold analysis at your site (site_threshold_sweep.py)
 
 Each site runs this locally (it reads the intermediate parquet files, not the aggregate CSVs):
 
 ```bash
-python code/35_threshold_policy_comparison.py --dataset ucmc
+python code/site_threshold_sweep.py --dataset ucmc
 ```
 
 Writes `output/UCMC/threshold_comparison_table.csv`, `output/UCMC/patient_level_table.csv`, and plots to `output/UCMC/plots/`. **Share these files** along with the outputs from step 4.
@@ -115,7 +115,7 @@ After collecting aggregate outputs from **all** sites:
 
 ```bash
 # Cross-site clinician vasopressin analysis (requires parquet from MIMIC + CLIF aggregate CSVs)
-python code/36_feature_threshold_rules.py
+python code/cross_site_vasopressin_analysis.py
 ```
 
 See [`code/README.md`](code/README.md) for full script documentation.
@@ -128,8 +128,8 @@ See [`code/README.md`](code/README.md) for full script documentation.
 │   ├── clif_extract.py          # CLIF 2.1.0 cohort extraction
 │   ├── mimic_extract.py         # MIMIC-IV cohort extraction (internal)
 │   ├── site_summary.py          # Federated aggregate summary (run at each site)
-│   ├── 35_threshold_policy_comparison.py
-│   ├── 36_feature_threshold_rules.py
+│   ├── site_threshold_sweep.py          # Per-feature threshold sweep (run at each site)
+│   ├── cross_site_vasopressin_analysis.py  # Cross-site combined analysis (coordinating site)
 │   └── README.md
 ├── config/                      # Configuration templates
 │   ├── config.example.py        # Copy to config.py and fill in site paths

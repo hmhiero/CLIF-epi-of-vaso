@@ -1,7 +1,10 @@
 """
-35_threshold_policy_comparison.py
+site_threshold_sweep.py
 
-Per-feature threshold rules predicting clinician vasopressin action (action_vaso).
+Per-feature threshold sweep predicting clinician vasopressin action (action_vaso).
+Run at each site — reads the site's intermediate parquet files, writes aggregate
+CSV and plot outputs to output/<DATASET>/ for sharing with the coordinating site.
+
 Optionally compares against an RL policy if a trained FQI model is available.
 
 For each feature, asks: "If we triggered vasopressin above/below a threshold on this
@@ -16,16 +19,15 @@ Additional analyses:
   - Feature-action density (requires --model for RL curve)
   - Decision tree fidelity curve (depth 1-6 vs agreement with clinician)
 
-Outputs (in output/<dataset>/):
+Outputs (in output/<DATASET>/):
   - threshold_sweep.png
   - decision_tree_fidelity.png
   - threshold_comparison_table.csv
   - patient_level_table.csv
 
 Usage:
-    python 35_threshold_policy_comparison.py
-    python 35_threshold_policy_comparison.py --dataset ucmc
-    python 35_threshold_policy_comparison.py --dataset mimic --model path/to/fqi_model.pkl
+    python code/site_threshold_sweep.py --dataset ucmc
+    python code/site_threshold_sweep.py --dataset mimic --model path/to/fqi_model.pkl
 """
 import argparse
 import pickle

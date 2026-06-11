@@ -9,8 +9,8 @@ All analysis scripts for the vasopressin epidemiology project.
 | `clif_extract.py` | Extract septic shock cohort and hourly features from CLIF 2.1.0 parquet tables | Each CLIF site |
 | `mimic_extract.py` | Extract equivalent cohort from MIMIC-IV DuckDB | Coordinating site (internal) |
 | `site_summary.py` | Compute federated-safe aggregate statistics; write CSVs to `output/` | Each site |
-| `35_threshold_policy_comparison.py` | Per-feature threshold rules vs clinician action_vaso; optional RL comparison | Coordinating site |
-| `36_feature_threshold_rules.py` | Cross-site clinician vasopressin analysis (MIMIC + CLIF) | Coordinating site |
+| `site_threshold_sweep.py` | Per-feature threshold sweep vs clinician vasopressin action; optional RL comparison | Each site |
+| `cross_site_vasopressin_analysis.py` | Cross-site clinician vasopressin analysis (MIMIC + CLIF) | Coordinating site |
 
 ## Usage
 
@@ -24,9 +24,9 @@ python code/site_summary.py --dataset ucmc
 python code/site_summary.py --dataset mimic
 
 # Analysis — run at coordinating site after collecting all site outputs
-python code/35_threshold_policy_comparison.py --dataset ucmc
-python code/35_threshold_policy_comparison.py --dataset mimic
-python code/36_feature_threshold_rules.py
+python code/site_threshold_sweep.py --dataset ucmc
+python code/site_threshold_sweep.py --dataset mimic
+python code/cross_site_vasopressin_analysis.py
 ```
 
 ## Outputs

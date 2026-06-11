@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""36_feature_threshold_rules.py
+"""cross_site_vasopressin_analysis.py
 
-Clinician vasopressin analysis across MIMIC and CLIF.
+Coordinating-site: clinician vasopressin analysis across MIMIC and CLIF.
 
 Column clarification: 'norepinephrine' in both MIMIC processed data and CLIF features_clif
 refers to raw norepinephrine dose (NE, µg/kg/min). Verified: correlation between MIMIC
@@ -40,7 +40,7 @@ Analysis 3 — Decision tree over multiple features
     plots/tree_fidelity.png
 
 Usage:
-    python 36_feature_threshold_rules.py [--n-thresholds 100]
+    python code/cross_site_vasopressin_analysis.py [--n-thresholds 100]
 """
 import argparse
 import sys
