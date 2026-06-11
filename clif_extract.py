@@ -1018,10 +1018,22 @@ def build_features(cohort: pd.DataFrame, co: ClifOrchestrator, clif_dir: Path) -
     # action_vaso: vasopressin > 0 at this hour (mirrors MIMIC SQL vaso_hourly.action_vaso)
     grid["action_vaso"] = (grid["vaso_dose"] > 0).astype(int)
 
-    # death: patient-level hospital mortality broadcast to all hours
-    death_map = cohort[["stay_id", "hospital_death"]].rename(columns={"hospital_death": "death"})
-    grid = grid.merge(death_map, on="stay_id", how="left")
-    grid["death"] = grid["death"].fillna(0).astype(int)
+    # death: 1 only at the epoch during which the patient died
+    death_info = cohort[["stay_id", "hospital_death", "deathtime", "trajectory_start"]].copy()
+    death_info["_dt"] = to_naive_utc(pd.to_datetime(death_info["deathtime"], utc=True))
+    death_info["_ts"] = to_naive_utc(pd.to_datetime(death_info["trajectory_start"], utc=True))
+    death_info["_death_hour"] = (
+        (death_info["_dt"] - death_info["_ts"]).dt.total_seconds() / 3600
+    ).where(death_info["hospital_death"] == 1).apply(
+        lambda x: float(int(x)) if pd.notna(x) else float("nan")
+    )
+    grid = grid.merge(
+        death_info[["stay_id", "_death_hour"]], on="stay_id", how="left"
+    )
+    grid["death"] = (
+        grid["time_hour"] == grid["_death_hour"]
+    ).astype(int)
+    grid = grid.drop(columns=["_death_hour"])
 
     grid = grid.drop(columns=["start_time", "end_time"])
     grid = grid.sort_values(["stay_id", "time_hour"]).reset_index(drop=True)
