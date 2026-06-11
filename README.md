@@ -39,7 +39,7 @@ The [clifpy](https://common-longitudinal-icu-data-format.github.io/clifpy/) pack
 
 ## Expected Results
 
-Final aggregate outputs (no patient-level data) are written to `output/UCMC/` (CLIF sites) or `output/MIMIC/` (MIMIC-IV). The following files are produced per site:
+Final aggregate outputs (no patient-level data) are written to `output/<SITE>/`. The following files are produced per site:
 
 | File | Contents | Source script |
 |------|----------|---------------|
@@ -51,6 +51,8 @@ Final aggregate outputs (no patient-level data) are written to `output/UCMC/` (C
 | `feature_roc_curves.csv` | ROC curve points on fixed grid for coordinating-site replot | `site_summary.py` |
 | `threshold_comparison_table.csv` | Per-feature optimal threshold, kappa, AUROC (step-level) | `site_threshold_sweep.py` |
 | `patient_level_table.csv` | Per-feature patient-level threshold performance | `site_threshold_sweep.py` |
+| `patient_level_confounders.csv` | Clinical profile (mortality, SOFA, age, LOS, lactate) by threshold group per feature | `site_threshold_sweep.py` |
+| `threshold_sweep_data.csv` | Full kappa sweep curves per feature (for coordinating-site replotting) | `site_threshold_sweep.py` |
 | `plots/` | Threshold sweep and decision-tree fidelity figures | `site_threshold_sweep.py` |
 
 
@@ -75,29 +77,19 @@ uv sync
 
 ### 3. Extract cohort data
 
-**CLIF sites:**
 ```bash
 python code/clif_extract.py
 ```
-Writes `Data/UCMC/cohort.parquet`, `Data/UCMC/features.parquet`, `Data/UCMC/cohort_filter_counts.csv`.
 
-**MIMIC-IV (internal use):**
-```bash
-python code/mimic_extract.py
-```
-Writes `Data/MIMIC/cohort.parquet`, `Data/MIMIC/features.parquet`, `Data/MIMIC/cohort_filter_counts.csv`.
+Writes intermediate files to `Data/<SITE>/`: `cohort.parquet`, `features.parquet`, `cohort_filter_counts.csv`.
 
 ### 4. Run federated summary (site_summary.py)
 
 ```bash
-# For CLIF sites:
 python code/site_summary.py --dataset ucmc
-
-# For MIMIC (internal):
-python code/site_summary.py --dataset mimic
 ```
 
-Writes aggregate CSVs to `output/UCMC/` or `output/MIMIC/`. **Share only these files** — not the raw parquet data.
+Writes aggregate CSVs to `output/<SITE>/`. **Share only these files** — not the raw parquet data.
 
 ### 5. Run threshold analysis at your site (site_threshold_sweep.py)
 
@@ -107,14 +99,13 @@ Each site runs this locally (it reads the intermediate parquet files, not the ag
 python code/site_threshold_sweep.py --dataset ucmc
 ```
 
-Writes `output/UCMC/threshold_comparison_table.csv`, `output/UCMC/patient_level_table.csv`, and plots to `output/UCMC/plots/`. **Share these files** along with the outputs from step 4.
+Writes `output/<SITE>/threshold_comparison_table.csv`, `output/<SITE>/patient_level_table.csv`, and plots to `output/<SITE>/plots/`. **Share these files** along with the outputs from step 4.
 
 ### 6. Run cross-site analysis (coordinating site only)
 
 After collecting aggregate outputs from **all** sites:
 
 ```bash
-# Cross-site clinician vasopressin analysis (requires parquet from MIMIC + CLIF aggregate CSVs)
 python code/cross_site_vasopressin_analysis.py
 ```
 
@@ -126,7 +117,6 @@ See [`code/README.md`](code/README.md) for full script documentation.
 .
 ├── code/                        # All analysis scripts
 │   ├── clif_extract.py          # CLIF 2.1.0 cohort extraction
-│   ├── mimic_extract.py         # MIMIC-IV cohort extraction (internal)
 │   ├── site_summary.py          # Federated aggregate summary (run at each site)
 │   ├── site_threshold_sweep.py          # Per-feature threshold sweep (run at each site)
 │   ├── cross_site_vasopressin_analysis.py  # Cross-site combined analysis (coordinating site)
@@ -137,12 +127,9 @@ See [`code/README.md`](code/README.md) for full script documentation.
 ├── docs/                        # Documentation
 │   └── clif_extract.md          # CLIF extraction script reference
 ├── output/                      # Generated outputs (gitignored)
-│   ├── UCMC/                    # CLIF site aggregate results
-│   ├── MIMIC/                   # MIMIC-IV aggregate results
-│   └── README.md
+│   └── <SITE>/                  # Aggregate results per site
 ├── Data/                        # Local cohort data (gitignored, never share)
-│   ├── UCMC/
-│   └── MIMIC/
+│   └── <SITE>/
 ├── config.py                    # Site-specific config (gitignored, copy from config/)
 └── requirements.txt
 ```
