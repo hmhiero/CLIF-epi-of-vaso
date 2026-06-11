@@ -32,8 +32,25 @@ except ModuleNotFoundError:
 
 warnings.filterwarnings("ignore")
 
+
+def _load_site_config():
+    """Load config/config.py by file path. Returns the module, or None if absent.
+
+    Loading by path (rather than ``import config``) avoids the ``config/``
+    directory being picked up as an empty namespace package.
+    """
+    import importlib.util as _ilu
+    cfg_path = Path(__file__).parent.parent / "config" / "config.py"
+    if not cfg_path.exists():
+        return None
+    spec = _ilu.spec_from_file_location("clif_site_config", cfg_path)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 # ---------------------------------------------------------------------------
-# Configuration — defaults (override in config.py, copied from config.example.py)
+# Configuration — defaults (override in config/config.py, copied from config.example.py)
 # ---------------------------------------------------------------------------
 CLIF_DIR   = None   # REQUIRED — set in config.py
 OUTPUT_DIR = None   # REQUIRED — set in config.py
@@ -54,14 +71,9 @@ VASOPRESSOR_CATEGORIES = [
     "vasopressin", "dopamine", "angiotensin",
 ]
 
-# Override defaults with site-specific config if config.py exists
-# Add repo root to path so config.py is found when running from code/
-import sys as _sys
-_sys.path.insert(0, str(Path(__file__).parent.parent))
-del _sys
-
-try:
-    import config as _cfg
+# Override defaults with site-specific config from config/config.py
+_cfg = _load_site_config()
+if _cfg is not None:
     for _k in (
         "CLIF_DIR", "OUTPUT_DIR", "TIMEZONE", "TRAJECTORY_HOURS",
         "NE_WINDOW_HOURS", "MIN_NE_RECORDS", "SOFA_THRESHOLD",
@@ -70,14 +82,13 @@ try:
     ):
         if hasattr(_cfg, _k):
             globals()[_k] = getattr(_cfg, _k)
-    del _cfg, _k
-except ImportError:
-    pass
+    del _k
+del _cfg
 
 if CLIF_DIR is None or OUTPUT_DIR is None:
     sys.exit(
         "ERROR: CLIF_DIR and OUTPUT_DIR are not configured.\n"
-        "Copy config.example.py to config.py and set your site-specific paths."
+        "Copy config/config.example.py to config/config.py and set your site-specific paths."
     )
 
 

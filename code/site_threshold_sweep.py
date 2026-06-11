@@ -51,16 +51,25 @@ from sklearn.metrics import roc_auc_score, cohen_kappa_score, confusion_matrix
 BASE     = Path(__file__).parent
 DATA_DIR = BASE.parent / "Data"
 
-# Load SITE_NAME from config.py at repo root
-sys.path.insert(0, str(BASE.parent))
-try:
-    import config as _cfg
-    SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
-except ImportError:
+# Load SITE_NAME from config/config.py (by file path, not import, so the
+# config/ directory is not mistaken for an empty namespace package)
+def _load_site_config():
+    import importlib.util as _ilu
+    cfg_path = BASE.parent / "config" / "config.py"
+    if not cfg_path.exists():
+        return None
+    spec = _ilu.spec_from_file_location("clif_site_config", cfg_path)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+_cfg = _load_site_config()
+if _cfg is None:
     raise SystemExit(
-        "ERROR: config.py not found.\n"
-        "Copy config/config.example.py to config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
+        "ERROR: config/config.py not found.\n"
+        "Copy config/config.example.py to config/config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
     )
+SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
 
 # (column_name, display_label, is_binary)
 ANALYSIS_FEATURES = [

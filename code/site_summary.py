@@ -41,16 +41,25 @@ import pandas as pd
 
 BASE_DIR         = Path(__file__).parent.parent
 
-# Load SITE_NAME from config.py at repo root
-sys.path.insert(0, str(BASE_DIR))
-try:
-    import config as _cfg
-    SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
-except ImportError:
+# Load SITE_NAME from config/config.py (by file path, not import, so the
+# config/ directory is not mistaken for an empty namespace package)
+def _load_site_config():
+    import importlib.util as _ilu
+    cfg_path = BASE_DIR / "config" / "config.py"
+    if not cfg_path.exists():
+        return None
+    spec = _ilu.spec_from_file_location("clif_site_config", cfg_path)
+    mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+_cfg = _load_site_config()
+if _cfg is None:
     raise SystemExit(
-        "ERROR: config.py not found.\n"
-        "Copy config/config.example.py to config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
+        "ERROR: config/config.py not found.\n"
+        "Copy config/config.example.py to config/config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
     )
+SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
 
 RANDOM_SEED      = 42
 TRAIN_FRAC       = 0.70
