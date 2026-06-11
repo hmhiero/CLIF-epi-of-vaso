@@ -280,6 +280,7 @@ def plot_threshold_sweep(sweep_results: list, out_path: Path):
                  "(target = clinician vasopressin action; black line = optimal threshold)",
                  fontsize=11)
     fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=500, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {out_path}")
@@ -409,6 +410,7 @@ def plot_feature_action_density(df: pl.DataFrame, sweep_results: list,
                  "Blue=RL policy, Red=Clinician  |  Purple=Q-value advantage B(s)=Q1-Q0 (right axis)",
                  fontsize=11)
     fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {out_path}")
@@ -474,6 +476,7 @@ def plot_decision_tree_fidelity(X: np.ndarray, y: np.ndarray,
     ax2.tick_params(labelsize=8)
 
     fig.tight_layout()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {out_path}")
