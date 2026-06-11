@@ -108,6 +108,12 @@ def load_and_split():
     coh  = pd.read_parquet(INPUT_DIR / "cohort.parquet")
     feat = pd.read_parquet(INPUT_DIR / "features.parquet")
 
+    # LOCF per patient for continuous features before any analysis
+    feat = feat.sort_values(["stay_id", "time_hour"])
+    for col in ANALYSIS_FEATURES_CONT:
+        if col in feat.columns:
+            feat[col] = feat.groupby("stay_id")[col].ffill()
+
     # Patient-level: ever received vasopressin during trajectory
     ever_vaso = (
         feat.groupby("stay_id")["action_vaso"]
@@ -574,7 +580,7 @@ def main():
     args = ap.parse_args()
 
     INPUT_DIR  = BASE_DIR / "Data" / args.dataset.upper()
-    OUTPUT_DIR = BASE_DIR / "outputs" / args.dataset.upper()
+    OUTPUT_DIR = BASE_DIR / "output" / args.dataset.upper()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Dataset: {args.dataset.upper()}")

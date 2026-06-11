@@ -100,9 +100,16 @@ def sweep_continuous(values: np.ndarray, rl_actions: np.ndarray):
       thresholds, kappa_ge, kappa_le, sens_best, spec_best,
       opt_thresh, opt_dir, opt_kappa, auroc, agree_at_opt
     """
-    lo, hi = np.percentile(values, [PCT_LO, PCT_HI])
+    finite_mask = np.isfinite(values)
+    if finite_mask.sum() < 10:
+        return None
+    lo, hi = np.percentile(values[finite_mask], [PCT_LO, PCT_HI])
     if lo >= hi:
         return None
+
+    # Use finite values for sweep; fill NaN with median for prediction
+    fill_val = float(np.median(values[finite_mask]))
+    values = np.where(finite_mask, values, fill_val)
 
     thresholds = np.linspace(lo, hi, N_SWEEP)
     kappa_ge = np.full(N_SWEEP, np.nan)
@@ -584,7 +591,7 @@ def main():
     coh_path  = DATA_DIR / args.dataset.upper() / "cohort.parquet"
 
     out_dir = (Path(args.out_dir) if args.out_dir
-               else BASE.parent / "output" / args.dataset)
+               else BASE.parent / "output" / args.dataset.upper())
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "plots").mkdir(exist_ok=True)
 
@@ -601,6 +608,16 @@ def main():
         pl.read_parquet(feat_path)
         .join(cohort.select(["stay_id", "hospital_death"]), on="stay_id", how="left")
     )
+
+    # Forward-fill (LOCF) continuous features per patient before any analysis
+    cont_cols = [
+        col for col, _, is_bin in ANALYSIS_FEATURES
+        if not is_bin and col in step_data.columns
+    ]
+    step_data = step_data.sort(["stay_id", "time_hour"]).with_columns([
+        pl.col(c).forward_fill().over("stay_id") for c in cont_cols
+    ])
+
     print(f"Patients:   {step_data['stay_id'].n_unique():,}")
     print(f"Steps:      {len(step_data):,}")
 

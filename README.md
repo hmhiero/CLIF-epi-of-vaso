@@ -41,14 +41,17 @@ The [clifpy](https://common-longitudinal-icu-data-format.github.io/clifpy/) pack
 
 Final aggregate outputs (no patient-level data) are written to `output/UCMC/` (CLIF sites) or `output/MIMIC/` (MIMIC-IV). The following files are produced per site:
 
-| File | Contents |
-|------|----------|
-| `cohort_filter_counts.csv` | Patient counts at each inclusion step |
-| `split_counts.csv` | Train/val/test counts by ever-vasopressin group |
-| `baseline_table1.csv` | Baseline characteristics stratified by vasopressin use |
-| `feature_at_initiation.csv` | Feature values (median [IQR]) at first vasopressin initiation |
-| `feature_thresholds_youden.csv` | Per-feature threshold performance (AUC, sens, spec) |
-| `feature_roc_curves.csv` | ROC curve points on fixed grid for coordinating-site replot |
+| File | Contents | Source script |
+|------|----------|---------------|
+| `cohort_filter_counts.csv` | Patient counts at each inclusion step | `site_summary.py` |
+| `split_counts.csv` | Train/val/test counts by ever-vasopressin group | `site_summary.py` |
+| `baseline_table1.csv` | Baseline characteristics stratified by vasopressin use | `site_summary.py` |
+| `feature_at_initiation.csv` | Feature values (median [IQR]) at first vasopressin initiation | `site_summary.py` |
+| `feature_thresholds_youden.csv` | Per-feature threshold performance (AUC, sens, spec) | `site_summary.py` |
+| `feature_roc_curves.csv` | ROC curve points on fixed grid for coordinating-site replot | `site_summary.py` |
+| `threshold_comparison_table.csv` | Per-feature optimal threshold, kappa, AUROC (step-level) | `35_threshold_policy_comparison.py` |
+| `patient_level_table.csv` | Per-feature patient-level threshold performance | `35_threshold_policy_comparison.py` |
+| `plots/` | Threshold sweep and decision-tree fidelity figures | `35_threshold_policy_comparison.py` |
 
 
 ## Detailed instructions for running the project
@@ -90,22 +93,28 @@ Writes `Data/MIMIC/cohort.parquet`, `Data/MIMIC/features.parquet`, `Data/MIMIC/c
 # For CLIF sites:
 python code/site_summary.py --dataset ucmc
 
-# For MIMIC:
+# For MIMIC (internal):
 python code/site_summary.py --dataset mimic
 ```
 
 Writes aggregate CSVs to `output/UCMC/` or `output/MIMIC/`. **Share only these files** — not the raw parquet data.
 
-### 5. Run analysis scripts (coordinating site)
+### 5. Run threshold analysis at your site (35_threshold_policy_comparison.py)
 
-After collecting aggregate outputs from all sites:
+Each site runs this locally (it reads the intermediate parquet files, not the aggregate CSVs):
 
 ```bash
-# Threshold rule analysis
 python code/35_threshold_policy_comparison.py --dataset ucmc
-python code/35_threshold_policy_comparison.py --dataset mimic
+```
 
-# Cross-site clinician vasopressin analysis
+Writes `output/UCMC/threshold_comparison_table.csv`, `output/UCMC/patient_level_table.csv`, and plots to `output/UCMC/plots/`. **Share these files** along with the outputs from step 4.
+
+### 6. Run cross-site analysis (coordinating site only)
+
+After collecting aggregate outputs from **all** sites:
+
+```bash
+# Cross-site clinician vasopressin analysis (requires parquet from MIMIC + CLIF aggregate CSVs)
 python code/36_feature_threshold_rules.py
 ```
 
