@@ -1,10 +1,13 @@
-# Data outputs — never commit patient data
-data_clif/
+# Data — never commit patient data
+Data/
 *.parquet
-*.csv
 *.feather
 
-# Local config (copied from config.example.py)
+# Generated outputs — share only via output/final/ after privacy review
+output/
+logs/
+
+# Local config (copy config/config.example.py to config.py at repo root)
 config.py
 
 # Python
@@ -24,6 +27,9 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Box sync artifacts
+2/
 
 # Editors
 .vscode/

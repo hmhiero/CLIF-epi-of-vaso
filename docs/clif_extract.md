@@ -2,9 +2,9 @@
 
 **Purpose:** CLIF 2.1.0 cohort extraction. Identifies septic shock patients from a CLIF site and builds hourly feature tables.
 
-Outputs drop into `data_clif/`:
-- `cohort_clif.parquet` — one row per patient, cohort-level columns
-- `features_clif.parquet` — one row per patient-hour, hourly features
+Outputs drop into `Data/UCMC/` (configured via `OUTPUT_DIR` in `config.py`):
+- `cohort.parquet` — one row per patient, cohort-level columns
+- `features.parquet` — one row per patient-hour, hourly features
 - `cohort_filter_counts.csv` — patient counts at each inclusion filter step
 
 ---
@@ -40,10 +40,10 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Copy `config.example.py` to `config.py` and fill in your site's paths — this is the **only file you need to edit**:
+Copy `config/config.example.py` to `config.py` (repo root) and fill in your site's paths — this is the **only file you need to edit**:
 
 ```bash
-cp config.example.py config.py
+cp config/config.example.py config.py
 # then open config.py and set CLIF_DIR and OUTPUT_DIR
 ```
 
@@ -66,12 +66,12 @@ All other parameters reflect the OVISS inclusion criteria and should not need ad
 ## Usage
 
 ```bash
-python clif_extract.py
+python code/clif_extract.py
 ```
 
 No arguments. The script runs Phase A (cohort) then Phase B (features) sequentially.
 
-If `cohort_clif.parquet` already exists and has all required columns, Phase A is skipped and the cached cohort is used directly.
+If `cohort.parquet` already exists in `OUTPUT_DIR` and has all required columns, Phase A is skipped and the cached cohort is used directly.
 
 
 ## Phase A: Cohort identification
@@ -92,7 +92,7 @@ Demographics (age, sex, race) and weight (median vitals during trajectory) are a
 
 Patient counts at each step are saved to `cohort_filter_counts.csv` (see below).
 
-### Output: `cohort_clif.parquet`
+### Output: `cohort.parquet`
 
 | Column | Description |
 |--------|-------------|
@@ -137,7 +137,7 @@ Example rows:
 
 A per-patient hourly grid is built from `time_hour = 0` (trajectory start / shock onset) to `traj_hours`. Each feature function joins against this grid by `(stay_id, time_hour)`.
 
-### Output: `features_clif.parquet`
+### Output: `features.parquet`
 
 | Column | Source | Aggregation |
 |--------|--------|-------------|
@@ -177,6 +177,6 @@ A per-patient hourly grid is built from `time_hour = 0` (trajectory start / shoc
 
 - Update `CLIF_DIR` and `OUTPUT_DIR` at the top of the script.
 - All other parameters match OVISS inclusion criteria and should not need adjustment.
-- Phase A is cached: if `cohort_clif.parquet` already exists with all required columns, it will not be rebuilt. `cohort_filter_counts.csv` is only written on a fresh build.
+- Phase A is cached: if `cohort.parquet` already exists in `OUTPUT_DIR` with all required columns, it will not be rebuilt. `cohort_filter_counts.csv` is only written on a fresh build.
 - `gcs` is gracefully skipped if `clif_patient_assessments.parquet` is absent.
 - `ne_mar_action` / `vaso_mar_action` are NaN-filled if no MAR action column is present in your continuous meds table.

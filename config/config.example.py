@@ -1,7 +1,7 @@
 # config.example.py
 #
-# Copy this file to config.py and fill in your site's paths.
-# clif_extract.py automatically loads config.py at startup.
+# Copy this file to config.py (at the repo root) and fill in your site's paths.
+# code/clif_extract.py automatically loads config.py at startup.
 #
 # Only CLIF_DIR and OUTPUT_DIR need to change per site.
 # All other values reflect the OVISS inclusion criteria and
@@ -15,10 +15,10 @@ from pathlib import Path
 CLIF_DIR = Path("/path/to/your/clif/2.1.0")
 # e.g. Windows: Path(r"C:\data\clif\2.1.0")
 
-# Directory where output parquet files will be written
-# (created automatically if it does not exist)
-OUTPUT_DIR = Path("/path/to/your/output/data_clif")
-# e.g. Windows: Path(r"C:\projects\epi-of-vaso\data_clif")
+# Directory where cohort/features parquet files will be written
+# Convention: Data/UCMC/ inside the project repo
+OUTPUT_DIR = Path("/path/to/your/project/Data/UCMC")
+# e.g. Windows: Path(r"C:\projects\epi-of-vaso\Data\UCMC")
 
 # --- Optional: adjust only if your protocol differs ---
 

@@ -55,6 +55,11 @@ VASOPRESSOR_CATEGORIES = [
 ]
 
 # Override defaults with site-specific config if config.py exists
+# Add repo root to path so config.py is found when running from code/
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).parent.parent))
+del _sys
+
 try:
     import config as _cfg
     for _k in (
