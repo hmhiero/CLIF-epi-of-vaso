@@ -101,13 +101,7 @@ python code/site_threshold_sweep.py --dataset ucmc
 
 Writes `output/<SITE>/threshold_comparison_table.csv`, `output/<SITE>/patient_level_table.csv`, and plots to `output/<SITE>/plots/`. **Share these files** along with the outputs from step 4.
 
-### 6. Run cross-site analysis (coordinating site only)
 
-After collecting aggregate outputs from **all** sites:
-
-```bash
-python code/cross_site_vasopressin_analysis.py
-```
 
 See [`code/README.md`](code/README.md) for full script documentation.
 
