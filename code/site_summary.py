@@ -25,10 +25,10 @@ Outcome for analyses 4 and 5
 
 Usage:
     python analysis/site_summary.py --dataset ucmc
-    python analysis/site_summary.py --dataset mimic
+    python code/site_summary.py
 """
 
-import argparse
+import sys
 import shutil
 from pathlib import Path
 
@@ -40,6 +40,17 @@ import pandas as pd
 # ============================================================
 
 BASE_DIR         = Path(__file__).parent.parent
+
+# Load SITE_NAME from config.py at repo root
+sys.path.insert(0, str(BASE_DIR))
+try:
+    import config as _cfg
+    SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
+except ImportError:
+    raise SystemExit(
+        "ERROR: config.py not found.\n"
+        "Copy config/config.example.py to config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
+    )
 
 RANDOM_SEED      = 42
 TRAIN_FRAC       = 0.70
@@ -572,18 +583,11 @@ def write_readme():
 def main():
     global INPUT_DIR, OUTPUT_DIR
 
-    ap = argparse.ArgumentParser(description="Federated-safe aggregate summary")
-    ap.add_argument(
-        "--dataset", choices=["mimic", "ucmc"], default="ucmc",
-        help="Dataset to summarize (default: ucmc)"
-    )
-    args = ap.parse_args()
-
-    INPUT_DIR  = BASE_DIR / "Data" / args.dataset.upper()
-    OUTPUT_DIR = BASE_DIR / "output" / args.dataset.upper()
+    INPUT_DIR  = BASE_DIR / "Data"   / SITE_NAME
+    OUTPUT_DIR = BASE_DIR / "output" / SITE_NAME
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Dataset: {args.dataset.upper()}")
+    print(f"Site:   {SITE_NAME}")
     print(f"Input:  {INPUT_DIR}")
     print(f"Output: {OUTPUT_DIR}\n")
 

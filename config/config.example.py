@@ -11,12 +11,15 @@ from pathlib import Path
 
 # --- Required: set these for your site ---
 
+# Short identifier for your site — used as the output folder name (e.g. output/UCMC/)
+SITE_NAME = "UCMC"
+
 # Root directory containing all CLIF 2.1.0 parquet files
 CLIF_DIR = Path("/path/to/your/clif/2.1.0")
 # e.g. Windows: Path(r"C:\data\clif\2.1.0")
 
-# Directory where cohort/features parquet files will be written
-# Convention: Data/UCMC/ inside the project repo
+# Directory where intermediate cohort/features parquet files will be written
+# Convention: Data/<SITE_NAME>/ inside the project repo
 OUTPUT_DIR = Path("/path/to/your/project/Data/UCMC")
 # e.g. Windows: Path(r"C:\projects\epi-of-vaso\Data\UCMC")
 

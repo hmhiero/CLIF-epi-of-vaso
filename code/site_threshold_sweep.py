@@ -26,8 +26,8 @@ Outputs (in output/<DATASET>/):
   - patient_level_table.csv
 
 Usage:
-    python code/site_threshold_sweep.py --dataset ucmc
-    python code/site_threshold_sweep.py --dataset mimic --model path/to/fqi_model.pkl
+    python code/site_threshold_sweep.py
+    python code/site_threshold_sweep.py --model path/to/fqi_model.pkl
 """
 import argparse
 import pickle
@@ -51,7 +51,16 @@ from sklearn.metrics import roc_auc_score, cohen_kappa_score, confusion_matrix
 BASE     = Path(__file__).parent
 DATA_DIR = BASE.parent / "Data"
 
-DATASET_LABELS = {"mimic": "MIMIC-IV", "ucmc": "UCMC (CLIF)"}
+# Load SITE_NAME from config.py at repo root
+sys.path.insert(0, str(BASE.parent))
+try:
+    import config as _cfg
+    SITE_NAME = getattr(_cfg, "SITE_NAME", "UCMC")
+except ImportError:
+    raise SystemExit(
+        "ERROR: config.py not found.\n"
+        "Copy config/config.example.py to config.py and set SITE_NAME, CLIF_DIR, OUTPUT_DIR."
+    )
 
 # (column_name, display_label, is_binary)
 ANALYSIS_FEATURES = [
@@ -252,9 +261,9 @@ def plot_threshold_sweep(sweep_results: list, out_path: Path):
         ax = axes[i]
         t = r["thresholds"]
 
-        ax.plot(t, r["kappa_ge"], color="steelblue",  lw=1.5, alpha=0.85, label="κ (≥ threshold)")
-        ax.plot(t, r["kappa_le"], color="tomato",     lw=1.5, alpha=0.85, ls="--", label="κ (≤ threshold)")
-        ax.axvline(r["opt_thresh"], color="gold", lw=1.2, ls=":", label=f"opt {r['opt_dir']} {r['opt_thresh']:.2g}")
+        ax.plot(t, r["kappa_ge"], color="#1f77b4", lw=1.5, alpha=0.9,  label="κ (≥ threshold)")
+        ax.plot(t, r["kappa_le"], color="#d62728", lw=1.5, alpha=0.9,  ls="--", label="κ (≤ threshold)")
+        ax.axvline(r["opt_thresh"], color="black", lw=1.2, ls=":", label=f"opt {r['opt_dir']} {r['opt_thresh']:.2g}")
         ax.axhline(0, color="gray", lw=0.5, ls="--")
 
         ax.set_xlabel(lbl, fontsize=8)
@@ -268,11 +277,41 @@ def plot_threshold_sweep(sweep_results: list, out_path: Path):
         axes[j].set_visible(False)
 
     fig.suptitle("Threshold sweep: Kappa vs threshold for each feature\n"
-                 "(target = clinician vasopressin action; gold line = optimal threshold)",
+                 "(target = clinician vasopressin action; black line = optimal threshold)",
                  fontsize=11)
     fig.tight_layout()
-    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    fig.savefig(out_path, dpi=500, bbox_inches="tight")
     plt.close(fig)
+    print(f"Saved: {out_path}")
+
+
+def write_threshold_sweep_data(sweep_results: list, out_path: Path):
+    """Write per-feature threshold sweep curves to CSV for coordinating-site replotting.
+
+    Columns: feature, threshold, kappa_ge, kappa_le, agree_ge, agree_le, opt_thresh, opt_dir
+    One row per (feature, threshold grid point). Binary features are excluded
+    (their sweep is non-continuous and captured in threshold_comparison_table.csv).
+    """
+    rows = []
+    for col, lbl, r in sweep_results:
+        if r is None or "thresholds" not in r:
+            continue
+        for t, kge, kle, age, ale in zip(
+            r["thresholds"], r["kappa_ge"], r["kappa_le"],
+            r["agree_ge"], r["agree_le"],
+        ):
+            rows.append({
+                "feature":    col,
+                "threshold":  round(float(t),   4),
+                "kappa_ge":   round(float(kge), 4) if np.isfinite(kge) else None,
+                "kappa_le":   round(float(kle), 4) if np.isfinite(kle) else None,
+                "agree_ge":   round(float(age), 4) if np.isfinite(age) else None,
+                "agree_le":   round(float(ale), 4) if np.isfinite(ale) else None,
+                "opt_thresh": round(float(r["opt_thresh"]), 4),
+                "opt_dir":    r["opt_dir"],
+            })
+    import pandas as _pd
+    _pd.DataFrame(rows).to_csv(out_path, index=False)
     print(f"Saved: {out_path}")
 
 
@@ -423,8 +462,8 @@ def plot_decision_tree_fidelity(X: np.ndarray, y: np.ndarray,
     colors  = ["tomato" if a < 0.6 else ("gold" if a < 0.7 else "steelblue") for a in aurocs]
 
     bars = ax2.barh(labels, aurocs, color=colors, alpha=0.80)
-    ax2.axvline(0.5, color="gray", lw=1.0, ls="--", label="Chance (0.5)")
-    ax2.axvline(0.7, color="steelblue", lw=0.8, ls=":", alpha=0.6, label="AUROC=0.7")
+    ax2.axvline(0.5, color="gray", lw=1.0, ls="--")
+    ax2.axvline(0.7, color="steelblue", lw=0.8, ls=":", alpha=0.6)
     for bar, a in zip(bars, aurocs):
         ax2.text(a + 0.003, bar.get_y() + bar.get_height() / 2,
                  f"{a:.3f}", va="center", fontsize=8)
@@ -433,15 +472,6 @@ def plot_decision_tree_fidelity(X: np.ndarray, y: np.ndarray,
     ax2.set_title("Per-feature discriminability of clinician vasopressin action\n"
                   "(red < 0.6 = near-chance, gold 0.6-0.7, blue > 0.7)", fontsize=10)
     ax2.tick_params(labelsize=8)
-    ax2.legend(fontsize=8, loc="lower right")
-
-    # Annotate with depth-1 tree structure
-    dt1 = trees[0]
-    tree_text = export_text(dt1, feature_names=feat_names, max_depth=2)
-    ax2.text(0.97, 0.03, f"Depth-1 tree:\n{tree_text}",
-             transform=ax2.transAxes, ha="right", va="bottom",
-             fontsize=6.5, fontfamily="monospace",
-             bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.8))
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -519,6 +549,78 @@ def _patient_level_eval(step_data: pl.DataFrame, sweep_results: list) -> pl.Data
     return pl.DataFrame(rows).sort("patient_auroc", descending=True, nulls_last=True)
 
 
+_SUPPRESS_K = 11  # suppress cells with fewer than this many patients
+
+
+def _patient_level_confounders(
+    step_data: pl.DataFrame, sweep_results: list, cohort: pl.DataFrame
+) -> pl.DataFrame:
+    """For each feature at its optimal threshold, compare clinical profile of
+    threshold-positive vs threshold-negative patients.
+
+    Cohort columns used: hospital_death, sepsis_onset_sofa, age, traj_hours, initial_lactate.
+    Cells with n < _SUPPRESS_K are suppressed (stats set to None).
+    """
+    coh = cohort.select([
+        "stay_id", "hospital_death", "sepsis_onset_sofa",
+        "age", "traj_hours", "initial_lactate",
+    ])
+
+    rows = []
+    for col, lbl, r in sweep_results:
+        if r is None or col not in step_data.columns:
+            continue
+        is_binary = col in {c for c, _, b in ANALYSIS_FEATURES if b}
+
+        pat = (
+            step_data
+            .group_by("stay_id")
+            .agg([
+                (pl.col("action_vaso") == 1).any().cast(pl.Int32).alias("ever_vaso"),
+                pl.col(col).cast(pl.Float64).drop_nulls().max().alias("feat_max"),
+            ])
+            .drop_nulls(subset=["feat_max"])
+            .join(coh, on="stay_id", how="left")
+        )
+
+        feat_max = pat["feat_max"].to_numpy().astype(float)
+        feat_max = np.where(np.isfinite(feat_max), feat_max, float(np.nanmedian(feat_max)))
+
+        if is_binary:
+            tau, direction = 0.5, "pos"
+        else:
+            tau       = r["opt_thresh"]
+            direction = "pos" if ">=" in r["opt_dir"] else "neg"
+
+        pred = (feat_max > tau).astype(int) if direction == "pos" else (feat_max < tau).astype(int)
+        pat  = pat.with_columns(pl.Series("threshold_group", pred))
+
+        for grp_val, grp_label in [(1, "threshold_positive"), (0, "threshold_negative")]:
+            g = pat.filter(pl.col("threshold_group") == grp_val)
+            n = len(g)
+
+            def _mean(series_name):
+                if n < _SUPPRESS_K:
+                    return None
+                vals = g[series_name].drop_nulls().cast(pl.Float64)
+                return round(float(vals.mean()), 3) if len(vals) > 0 else None
+
+            rows.append({
+                "feature":              col,
+                "label":                lbl,
+                "threshold_group":      grp_label,
+                "n":                    n if n >= _SUPPRESS_K else f"<{_SUPPRESS_K}",
+                "ever_vaso_pct":        round(float(g["ever_vaso"].mean()) * 100, 1) if n >= _SUPPRESS_K else None,
+                "hospital_mortality_pct": round(float(g["hospital_death"].drop_nulls().cast(pl.Float64).mean()) * 100, 1) if n >= _SUPPRESS_K else None,
+                "mean_sofa":            _mean("sepsis_onset_sofa"),
+                "mean_age":             _mean("age"),
+                "mean_traj_hours":      _mean("traj_hours"),
+                "mean_initial_lactate": _mean("initial_lactate"),
+            })
+
+    return pl.DataFrame(rows)
+
+
 def build_summary_table(sweep_results: list, q0: np.ndarray, q1: np.ndarray,
                          rl_actions: np.ndarray) -> pl.DataFrame:
     rl_dm = dm_value(q0, q1, np.argmax(np.stack([q0, q1], axis=1), axis=1))
@@ -580,31 +682,26 @@ def print_summary(df: pl.DataFrame, rl_dm: float):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--dataset", default="mimic", choices=["mimic", "ucmc"],
-                    help="Dataset to analyse: mimic (default) or ucmc")
     ap.add_argument("--model", default=None,
                     help="Path to fqi_model.pkl for RL comparison (optional)")
     ap.add_argument("--out-dir", default=None,
-                    help="Output directory (default: results/analysis/<dataset>/)")
+                    help="Output directory (default: output/<SITE_NAME>/)")
     args = ap.parse_args()
 
-    ds_label = DATASET_LABELS[args.dataset]
-    feat_path = DATA_DIR / args.dataset.upper() / "features.parquet"
-    coh_path  = DATA_DIR / args.dataset.upper() / "cohort.parquet"
+    feat_path = DATA_DIR / SITE_NAME / "features.parquet"
+    coh_path  = DATA_DIR / SITE_NAME / "cohort.parquet"
 
-    out_dir = (Path(args.out_dir) if args.out_dir
-               else BASE.parent / "output" / args.dataset.upper())
+    out_dir = Path(args.out_dir) if args.out_dir else BASE.parent / "output" / SITE_NAME
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "plots").mkdir(exist_ok=True)
 
     if not feat_path.exists():
         raise FileNotFoundError(
-            f"{feat_path} not found.\n"
-            f"Run {'mimic_extract.py' if args.dataset == 'mimic' else 'clif_extract.py'} first."
+            f"{feat_path} not found.\nRun code/clif_extract.py first."
         )
 
     # Load features and cohort
-    print(f"Dataset:    {ds_label}")
+    print(f"Site:       {SITE_NAME}")
     cohort    = pl.read_parquet(coh_path)
     step_data = (
         pl.read_parquet(feat_path)
@@ -710,12 +807,20 @@ def main():
     pat_table = _patient_level_eval(step_data, sweep_results)
     pat_table.write_csv(out_dir / "patient_level_table.csv")
     print(f"Saved: {out_dir / 'patient_level_table.csv'}")
+
+    print("Computing patient-level confounders by threshold group...")
+    conf_table = _patient_level_confounders(step_data, sweep_results, cohort)
+    conf_table.to_pandas().to_csv(out_dir / "patient_level_confounders.csv", index=False)
+    print(f"Saved: {out_dir / 'patient_level_confounders.csv'}")
     print(f"\n{'Feature':<20} {'Pat κ':>8} {'Pat AUROC':>10} {'Pat Agree':>10} {'n_vaso':>8}")
     print("-" * 60)
     for row in pat_table.iter_rows(named=True):
         print(f"  {row['feature']:<18} {(row['patient_kappa'] or 0):>8.3f} "
               f"{(row['patient_auroc'] or 0):>10.3f} {row['patient_agree']:>10.3f} "
               f"{row['n_vaso_patients']:>8}")
+
+    # Sweep data CSV (for coordinating-site replotting)
+    write_threshold_sweep_data(sweep_results, out_dir / "threshold_sweep_data.csv")
 
     # Figures
     print("\nGenerating figures...")
