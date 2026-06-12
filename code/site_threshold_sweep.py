@@ -598,10 +598,16 @@ def _patient_level_confounders(
     Cohort columns used: hospital_death, sepsis_onset_sofa, age, traj_hours, initial_lactate.
     Cells with n < _SUPPRESS_K are suppressed (stats set to None).
     """
-    coh = cohort.select([
-        "stay_id", "hospital_death", "sepsis_onset_sofa",
-        "age", "traj_hours", "initial_lactate",
-    ])
+    # Compute traj_hours if not present (MIMIC cohort stores trajectory_start/end)
+    if "traj_hours" not in cohort.columns and "trajectory_start" in cohort.columns and "trajectory_end" in cohort.columns:
+        cohort = cohort.with_columns(
+            ((pl.col("trajectory_end") - pl.col("trajectory_start")).dt.total_seconds() / 3600)
+            .alias("traj_hours")
+        )
+    coh_cols = ["stay_id", "hospital_death", "sepsis_onset_sofa", "age", "initial_lactate"]
+    if "traj_hours" in cohort.columns:
+        coh_cols.append("traj_hours")
+    coh = cohort.select(coh_cols)
 
     rows = []
     for col, lbl, r in sweep_results:
@@ -651,7 +657,7 @@ def _patient_level_confounders(
                 "hospital_mortality_pct": round(float(g["hospital_death"].drop_nulls().cast(pl.Float64).mean()) * 100, 1) if n >= _SUPPRESS_K else None,
                 "mean_sofa":            _mean("sepsis_onset_sofa"),
                 "mean_age":             _mean("age"),
-                "mean_traj_hours":      _mean("traj_hours"),
+                "mean_traj_hours":      _mean("traj_hours") if "traj_hours" in g.columns else None,
                 "mean_initial_lactate": _mean("initial_lactate"),
             })
 
@@ -744,6 +750,16 @@ def main():
         pl.read_parquet(feat_path)
         .join(cohort.select(["stay_id", "hospital_death"]), on="stay_id", how="left")
     )
+
+    # Exclude patients on vasopressin at or before t=0
+    vaso_at_t0_ids = (
+        step_data.filter((pl.col("time_hour") <= 0) & (pl.col("action_vaso") == 1))
+        ["stay_id"].unique()
+    )
+    if len(vaso_at_t0_ids) > 0:
+        print(f"Excluding:  {len(vaso_at_t0_ids):,} patients with action_vaso=1 at t<=0")
+        step_data = step_data.filter(~pl.col("stay_id").is_in(vaso_at_t0_ids))
+        cohort    = cohort.filter(~pl.col("stay_id").is_in(vaso_at_t0_ids))
 
     # Forward-fill (LOCF) continuous features per patient before any analysis
     cont_cols = [

@@ -132,8 +132,17 @@ def load_and_split():
     coh  = pd.read_parquet(INPUT_DIR / "cohort.parquet")
     feat = pd.read_parquet(INPUT_DIR / "features.parquet")
 
-    # LOCF per patient for continuous features before any analysis
+    # Exclude patients on vasopressin at or before t=0
     feat = feat.sort_values(["stay_id", "time_hour"])
+    vaso_at_t0 = feat[feat["time_hour"] <= 0].groupby("stay_id")["action_vaso"].max()
+    vaso_at_t0_ids = set(vaso_at_t0[vaso_at_t0 == 1].index)
+    if vaso_at_t0_ids:
+        n_excl = int(coh["stay_id"].isin(vaso_at_t0_ids).sum())
+        print(f"  Excluding {n_excl} patients with action_vaso=1 at t<=0")
+        coh  = coh[~coh["stay_id"].isin(vaso_at_t0_ids)].copy()
+        feat = feat[~feat["stay_id"].isin(vaso_at_t0_ids)].copy()
+
+    # LOCF per patient for continuous features before any analysis
     for col in ANALYSIS_FEATURES_CONT:
         if col in feat.columns:
             feat[col] = feat.groupby("stay_id")[col].ffill()

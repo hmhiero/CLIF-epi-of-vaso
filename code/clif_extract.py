@@ -478,6 +478,14 @@ def build_cohort(clif_dir: Path, co: ClifOrchestrator) -> tuple:
     cohort = cohort.merge(vaso_pretraj, on="stay_id", how="left")
     cohort["vaso_before_traj"] = cohort["vaso_before_traj"].fillna(0).astype(int)
 
+    print("  Excluding patients on vasopressin in 24h before trajectory start...")
+    cohort = cohort[cohort["vaso_before_traj"] == 0].copy()
+    filter_log.append({
+        "step": "Exclude vasopressin in 24h before trajectory start",
+        "n_hospitalizations": len(cohort),
+    })
+    print(f"  {len(cohort):,} remaining after exclusion")
+
     return cohort, co, filter_log
 
 
