@@ -105,7 +105,7 @@ def tz_coerce(s: pd.Series, tz: str) -> pd.Series:
     """Localize naive datetimes; convert already-aware ones."""
     if pd.api.types.is_datetime64_any_dtype(s):
         if s.dt.tz is None:
-            return s.dt.tz_localize(tz)
+            return s.dt.tz_localize(tz, ambiguous="NaT", nonexistent="NaT")
         return s.dt.tz_convert(tz)
     return s
 
